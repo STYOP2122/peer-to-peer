@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Voice Dynamic</title>
+    <title>Discord Clone Voice</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         /* --- Discord Theme Colors & Reset --- */
         :root {
-            --bg-tertiary: #1e1f22; 
-            --bg-secondary: #2b2d31; 
-            --bg-primary: #313338; 
+            --bg-tertiary: #1e1f22; /* Sidebar */
+            --bg-secondary: #2b2d31; /* Channel List */
+            --bg-primary: #313338; /* Chat Area */
             --text-normal: #dbdee1;
             --text-muted: #949ba4;
             --interactive-hover: #3f4147;
-            --interactive-active: #5865f2; 
+            --interactive-active: #5865f2; /* Blurple */
             --green: #23a559;
             --red: #da373c;
             --control-bg: #232428;
@@ -39,10 +39,12 @@
         }
         .btn-arm { background: var(--interactive-active); }
         .btn-rus { background: #eb459e; }
+        .btn-arm:hover, .btn-rus:hover { opacity: 0.9; transform: translateY(-1px); }
 
-        /* --- UI Components --- */
+        /* --- Main Layout --- */
         .sidebar { width: 72px; background: var(--bg-tertiary); display: flex; flex-direction: column; align-items: center; padding-top: 12px; }
-        .server-icon { width: 48px; height: 48px; background: var(--interactive-active); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; margin-bottom: 10px; }
+        .server-icon { width: 48px; height: 48px; background: var(--interactive-active); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; transition: 0.2s; cursor: pointer; margin-bottom: 10px; }
+        .server-icon:hover { border-radius: 16px; background: #5865f2; }
         
         .channels { width: 240px; background: var(--bg-secondary); display: flex; flex-direction: column; }
         .channel-header { padding: 12px 16px; border-bottom: 1px solid #1f2023; font-weight: bold; box-shadow: 0 1px 0 rgba(4,4,5,0.2); }
@@ -56,32 +58,24 @@
         .voice-channel.active { background: rgba(88, 101, 242, 0.1); color: white; }
         .vc-icon { margin-right: 6px; width: 20px; height: 20px; fill: currentColor; }
 
-        /* --- Users List --- */
-        .user-container { padding-left: 28px; margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
-        /* По умолчанию скрываем пользователей, показываем только если они онлайн */
-        .user-row { display: flex; align-items: center; padding: 6px 8px; border-radius: 4px; opacity: 0.3; transition: opacity 0.3s; }
-        .user-row.is-online { opacity: 1; } 
-        
-        /* Если пользователь вошел в канал - подсвечиваем фон */
-        .user-row.in-channel { background: rgba(255,255,255,0.05); }
-
-        .avatar { width: 24px; height: 24px; border-radius: 50%; margin-right: 8px; background: #5c5e66; position: relative; border: 2px solid transparent; transition: border-color 0.2s; }
+        /* --- User List inside Voice Channel --- */
+        .user-container { padding-left: 28px; margin-top: 4px; display: none; }
+        .user-row { display: flex; align-items: center; padding: 6px 8px; border-radius: 4px; margin-bottom: 2px; }
+        .user-row.connected { background: transparent; }
+        .avatar { width: 24px; height: 24px; border-radius: 50%; margin-right: 8px; background: #5c5e66; position: relative; border: 2px solid transparent;}
         .avatar.speaking { border-color: var(--green); }
         .username { font-size: 14px; font-weight: 500; color: var(--text-muted); }
-        .user-row.is-online .username { color: white; }
+        .user-row.online .username { color: white; }
+        .user-row.online .avatar { background: var(--interactive-active); }
         
-        /* Status Icons inside User List */
-        .status-icons { margin-left: auto; display: flex; gap: 5px; }
-        .s-icon { width: 14px; height: 14px; color: var(--red); display: none; }
-        .user-row[data-mic="false"] .icon-mic-off { display: block; }
-        .user-row[data-sound="false"] .icon-head-off { display: block; }
-
-        /* Status Dot (Green/Grey) */
+        /* Status Dot */
         .status-indicator { width: 10px; height: 10px; border-radius: 50%; background: #4e5058; border: 2px solid var(--bg-secondary); position: absolute; bottom: -2px; right: -2px; }
-        .user-row.is-online .status-indicator { background: var(--green); }
+        .user-row.online .status-indicator { background: var(--green); }
 
-        /* --- Bottom Controls --- */
-        .user-area { background: var(--control-bg); padding: 8px; display: flex; align-items: center; justify-content: space-between; }
+        /* --- Bottom Control Bar (The "User Area") --- */
+        .user-area {
+            background: var(--control-bg); padding: 8px; display: flex; align-items: center; justify-content: space-between;
+        }
         .my-info { display: flex; align-items: center; }
         .my-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--interactive-active); margin-right: 8px; }
         .my-name { font-size: 13px; font-weight: bold; display: block; }
@@ -93,22 +87,30 @@
             color: var(--text-normal); cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative;
         }
         .control-btn:hover { background: var(--interactive-hover); }
+        .control-btn svg { width: 20px; height: 20px; fill: currentColor; }
+        
         .strikethrough { position: absolute; width: 100%; height: 2px; background: var(--red); transform: rotate(45deg); display: none; }
         .control-btn.muted .strikethrough { display: block; }
         .control-btn.muted { color: var(--red); }
-        .control-btn svg { width: 20px; height: 20px; fill: currentColor; }
 
-        /* --- Chat Area --- */
-        .chat-area { flex-grow: 1; background: var(--bg-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); text-align: center; }
-        .btn-join { background: var(--green); color: white; padding: 10px 24px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; margin-top: 20px; }
-        .btn-leave { background: var(--red); display: none; color: white; padding: 10px 24px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; margin-top: 20px; }
+        /* --- Main Chat Area (Placeholder) --- */
+        .chat-area { flex-grow: 1; background: var(--bg-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); }
+        .chat-placeholder { text-align: center; max-width: 400px; }
+        
+        /* Join/Leave Button in Chat Area */
+        .action-btn {
+            padding: 10px 24px; border-radius: 4px; font-weight: bold; border: none; cursor: pointer; margin-top: 20px; font-size: 14px;
+        }
+        .btn-join { background: var(--green); color: white; }
+        .btn-leave { background: var(--red); color: white; display: none; }
+
     </style>
 </head>
 <body>
 
 <div id="login-screen">
     <div class="login-card">
-        <h2 style="color:white; margin-bottom: 20px;">Кто ты?</h2>
+        <h2 style="margin-bottom: 20px; color:white;">Выбор роли</h2>
         <button class="login-btn btn-arm" onclick="initApp('armenia')">Я ПАРЕНЬ (Армения)</button>
         <button class="login-btn btn-rus" onclick="initApp('russia')">Я ДЕВУШКА (Россия)</button>
     </div>
@@ -119,29 +121,26 @@
 </div>
 
 <div class="channels">
-    <div class="channel-header">Приватный сервер</div>
+    <div class="channel-header">Личный Сервер</div>
+    
     <div class="channel-list">
         <div class="voice-channel" id="voice-channel-btn" onclick="toggleChannelJoin()">
             <svg class="vc-icon" viewBox="0 0 24 24"><path d="M11.383 3.07904C11.009 2.92504 10.579 3.01004 10.293 3.29604L6 8.00204H3C2.45 8.00204 2 8.45304 2 9.00204V15.002C2 15.552 2.45 16.002 3 16.002H6L10.293 20.71C10.579 20.996 11.009 21.082 11.383 20.927C11.758 20.772 12 20.407 12 20.002V4.00204C12 3.59904 11.758 3.23204 11.383 3.07904ZM14 5.00195V7.00195C16.757 7.00195 19 9.24595 19 12.002C19 14.759 16.757 17.002 14 17.002V19.002C17.86 19.002 21 15.863 21 12.002C21 8.14295 17.86 5.00195 14 5.00195Z"></path></svg>
             <span>Голосовой канал</span>
         </div>
-        
-        <div class="user-container">
-            <div class="user-row" id="row-armenia" data-mic="true" data-sound="true">
-                <div class="avatar"><div class="status-indicator"></div></div>
-                <div style="flex-grow:1;"><span class="username">Армения</span></div>
-                <div class="status-icons">
-                    <svg class="s-icon icon-mic-off" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l2.97 2.97c-.85.45-1.79.7-2.65.68v2h1.17l3.2 3.2 1.27-1.27-14.34-14.23z"></path></svg>
-                    <svg class="s-icon icon-head-off" viewBox="0 0 24 24"><path fill="currentColor" d="M12 4a9 9 0 0 0-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h4v1h-7v2h6c1.66 0 3-1.34 3-3V13a9 9 0 0 0-9-9z"></path><path fill="currentColor" d="M2.27 2.27L1 3.54l2.78 2.78A8.95 8.95 0 0 0 3 13v7c0 1.66 1.34 3 3 3h5v-8H7v-2c0-2.32 1.13-4.38 2.87-5.71L12 11.46V13h3.46l5 5h.54v-1.46L21.46 22l1.27-1.27L2.27 2.27z"></path></svg>
+
+        <div class="user-container" id="channel-users">
+            <div class="user-row" id="row-armenia">
+                <div class="avatar">
+                    <div class="status-indicator"></div>
                 </div>
+                <span class="username">Армения</span>
             </div>
-            <div class="user-row" id="row-russia" data-mic="true" data-sound="true">
-                <div class="avatar" style="background:#eb459e;"><div class="status-indicator"></div></div>
-                <div style="flex-grow:1;"><span class="username">Россия</span></div>
-                <div class="status-icons">
-                    <svg class="s-icon icon-mic-off" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l2.97 2.97c-.85.45-1.79.7-2.65.68v2h1.17l3.2 3.2 1.27-1.27-14.34-14.23z"></path></svg>
-                    <svg class="s-icon icon-head-off" viewBox="0 0 24 24"><path fill="currentColor" d="M12 4a9 9 0 0 0-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h4v1h-7v2h6c1.66 0 3-1.34 3-3V13a9 9 0 0 0-9-9z"></path><path fill="currentColor" d="M2.27 2.27L1 3.54l2.78 2.78A8.95 8.95 0 0 0 3 13v7c0 1.66 1.34 3 3 3h5v-8H7v-2c0-2.32 1.13-4.38 2.87-5.71L12 11.46V13h3.46l5 5h.54v-1.46L21.46 22l1.27-1.27L2.27 2.27z"></path></svg>
+            <div class="user-row" id="row-russia">
+                <div class="avatar" style="background: #eb459e;">
+                    <div class="status-indicator"></div>
                 </div>
+                <span class="username">Россия</span>
             </div>
         </div>
     </div>
@@ -168,43 +167,37 @@
 </div>
 
 <div class="chat-area">
-    <h2>Голосовой чат</h2>
-    <p>Нажмите кнопку ниже или канал слева</p>
-    <button id="main-join-btn" class="btn-join" onclick="toggleChannelJoin()">Войти в канал</button>
-    <button id="main-leave-btn" class="btn-leave" onclick="toggleChannelJoin()">Отключиться</button>
+    <div class="chat-placeholder">
+        <h2>Добро пожаловать</h2>
+        <p>Это приватный сервер. Нажмите на Голосовой канал слева, чтобы войти.</p>
+        <button id="main-join-btn" class="action-btn btn-join" onclick="toggleChannelJoin()">Войти в канал</button>
+        <button id="main-leave-btn" class="action-btn btn-leave" onclick="toggleChannelJoin()">Отключиться</button>
+    </div>
 </div>
 
 <audio id="remote-audio" autoplay playsinline></audio>
 
 <script>
-    const KEY_PREFIX = "DISCORD-V2-";
-    let peer, localStream, mediaCall, dataConn;
-    let myRole, targetId;
-    
-    // Мое состояние
-    let myState = {
-        mic: true,
-        sound: true,
-        joined: false, // Нахожусь ли я в канале
-        online: true   // Сам факт присутствия
-    };
+    const SECRET_KEY = "DISCORD-CLONE-2026";
+    let peer, localStream, currentCall, myRole, targetId;
+    let isMicMuted = false;
+    let isDeafened = false;
+    let isJoined = false;
 
-    // Состояние собеседника
-    let peerLastSeen = 0; // Timestamp последнего сигнала
-
+    // Инициализация при выборе роли
     async function initApp(role) {
         myRole = role;
-        const myId = KEY_PREFIX + role;
-        targetId = KEY_PREFIX + (role === 'armenia' ? 'russia' : 'armenia');
+        const myId = `${role}-${SECRET_KEY}`;
+        targetId = (role === 'armenia' ? 'russia' : 'armenia') + "-" + SECRET_KEY;
 
         document.getElementById('login-screen').style.display = 'none';
+        
+        // Настройка UI под роль
         document.getElementById('my-ui-name').innerText = role === 'armenia' ? "Армения" : "Россия";
         if(role === 'russia') document.getElementById('my-avatar-img').style.backgroundColor = '#eb459e';
 
-        // 1. Показываем себя "онлайн" в списке
-        updateRowUI(myRole, myState, true);
-
         try {
+            // Сразу получаем доступ к микрофону, но пока не звоним
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
             peer = new Peer(myId, {
@@ -212,169 +205,131 @@
             });
 
             peer.on('open', () => {
-                console.log("My Peer ID:", myId);
-                connectDataLoop(); // Начинаем долбиться в data-канал
+                console.log("My ID:", myId);
+                startPresenceCheck(); // Начинаем проверять, в сети ли другой
             });
 
-            // Входящее DATA соединение (текст/статус)
-            peer.on('connection', (conn) => {
-                setupDataConnection(conn);
-            });
-
-            // Входящее MEDIA соединение (звук)
             peer.on('call', (call) => {
-                if(myState.joined) {
+                // Если нам звонят (другой человек вошел в канал)
+                if(isJoined) {
                     call.answer(localStream);
-                    handleMediaCall(call);
+                    handleCall(call);
                 }
             });
 
-        } catch(e) { alert("Ошибка микрофона: " + e); }
-
-        // Запускаем цикл отправки своего статуса
-        setInterval(broadcastState, 1000); 
-        // Запускаем проверку "жив ли собеседник"
-        setInterval(checkPeerAlive, 2000);
-    }
-
-    // --- Логика Data (Статусы) ---
-
-    function connectDataLoop() {
-        // Если соединения нет, пытаемся подключиться к собеседнику
-        if (!dataConn || !dataConn.open) {
-            const conn = peer.connect(targetId, { reliable: true });
-            setupDataConnection(conn);
+        } catch (e) {
+            alert("Ошибка доступа к микрофону: " + e);
         }
     }
 
-    function setupDataConnection(conn) {
-        conn.on('open', () => {
-            dataConn = conn;
-            // Сразу отправляем свой статус
-            broadcastState();
-        });
-
-        conn.on('data', (data) => {
-            // Пришли данные от собеседника!
-            if (data.type === 'state') {
-                peerLastSeen = Date.now(); // Обновляем "время жизни"
-                const otherRole = myRole === 'armenia' ? 'russia' : 'armenia';
-                updateRowUI(otherRole, data.payload, true);
-            }
-        });
-
-        conn.on('error', () => { dataConn = null; });
-    }
-
-    function broadcastState() {
-        if (dataConn && dataConn.open) {
-            dataConn.send({ type: 'state', payload: myState });
-        } else {
-            // Если соединение упало, пробуем восстановить
-            connectDataLoop();
-        }
-    }
-
-    function checkPeerAlive() {
-        const otherRole = myRole === 'armenia' ? 'russia' : 'armenia';
-        // Если от собеседника не было вестей больше 5 секунд -> он оффлайн
-        if (Date.now() - peerLastSeen > 5000) {
-            updateRowUI(otherRole, { mic: true, sound: true, joined: false }, false);
-        }
-    }
-
-    // --- Логика Media (Звук) ---
-
+    // Вход/Выход из канала
     function toggleChannelJoin() {
-        myState.joined = !myState.joined;
-        
-        // Обновляем UI для себя
-        updateMainButtonUI();
-        updateRowUI(myRole, myState, true);
-        broadcastState(); // Срочно сообщаем собеседнику
+        isJoined = !isJoined;
+        const userContainer = document.getElementById('channel-users');
+        const joinBtn = document.getElementById('main-join-btn');
+        const leaveBtn = document.getElementById('main-leave-btn');
+        const channelBtn = document.getElementById('voice-channel-btn');
+        const myRow = document.getElementById(`row-${myRole}`);
 
-        if (myState.joined) {
-            // Пытаемся позвонить
+        if (isJoined) {
+            // UI Update: Entered
+            userContainer.style.display = 'block';
+            joinBtn.style.display = 'none';
+            leaveBtn.style.display = 'inline-block';
+            channelBtn.classList.add('active');
+            myRow.classList.add('online'); // Подсвечиваем себя
+
+            // Логика звонка
+            // Пробуем позвонить. Если там никого нет, PeerJS просто не дозвонится, это ок.
             if(peer) {
-                mediaCall = peer.call(targetId, localStream);
-                if(mediaCall) handleMediaCall(mediaCall);
+                currentCall = peer.call(targetId, localStream);
+                if(currentCall) handleCall(currentCall);
             }
+
         } else {
-            // Выходим
-            if (mediaCall) mediaCall.close();
+            // UI Update: Left
+            userContainer.style.display = 'none';
+            joinBtn.style.display = 'inline-block';
+            leaveBtn.style.display = 'none';
+            channelBtn.classList.remove('active');
+            myRow.classList.remove('online');
+
+            // Разрыв связи
+            if (currentCall) currentCall.close();
             document.getElementById('remote-audio').srcObject = null;
         }
     }
 
-    function handleMediaCall(call) {
-        mediaCall = call;
-        call.on('stream', stream => {
-            document.getElementById('remote-audio').srcObject = stream;
-        });
-        // Простая имитация "говорения" (Border green)
-        // В реальном app нужен AudioContext для анализа громкости
-    }
-
-    // --- UI Update Functions ---
-
-    function updateRowUI(role, state, isOnline) {
-        const row = document.getElementById(`row-${role}`);
+    // Обработка звонка
+    function handleCall(call) {
+        currentCall = call;
         
-        if (isOnline) {
-            row.classList.add('is-online');
+        call.on('stream', stream => {
+            const audio = document.getElementById('remote-audio');
+            audio.srcObject = stream;
+            // Подсветка говорящего (имитация)
+            document.getElementById(`row-${myRole === 'armenia' ? 'russia' : 'armenia'}`).querySelector('.avatar').classList.add('speaking');
+        });
+
+        call.on('close', () => {
+            document.getElementById(`row-${myRole === 'armenia' ? 'russia' : 'armenia'}`).querySelector('.avatar').classList.remove('speaking');
+        });
+    }
+
+    // Проверка "онлайна" собеседника (Хартбит)
+    function startPresenceCheck() {
+        setInterval(() => {
+            const conn = peer.connect(targetId, { reliable: false });
             
-            // Если человек "Joined" - меняем фон строки
-            if (state.joined) row.classList.add('in-channel');
-            else row.classList.remove('in-channel');
+            conn.on('open', () => {
+                // Если соединение открылось, значит он там
+                updatePeerStatus(true);
+                conn.close();
+            });
 
-            // Иконки заглушенности
-            row.setAttribute('data-mic', state.mic);
-            row.setAttribute('data-sound', state.sound);
+            // Если ошибка (таймаут), значит его нет
+            conn.on('error', () => updatePeerStatus(false));
+            
+            // Если через 2 сек не открылось - считаем офлайн (грубая проверка)
+            setTimeout(() => { 
+                if(!conn.open) updatePeerStatus(false); 
+            }, 2000);
 
+        }, 4000);
+    }
+
+    function updatePeerStatus(isOnline) {
+        const otherRole = myRole === 'armenia' ? 'russia' : 'armenia';
+        const row = document.getElementById(`row-${otherRole}`);
+        if(isOnline) {
+            row.classList.add('online');
+            // Если мы оба "в канале" и еще нет звонка, можно попробовать перезвонить
+            // (в простой версии оставим инициацию на вход)
         } else {
-            row.classList.remove('is-online');
-            row.classList.remove('in-channel');
+            row.classList.remove('online');
+            row.querySelector('.avatar').classList.remove('speaking');
         }
     }
 
-    function updateMainButtonUI() {
-        const joinBtn = document.getElementById('main-join-btn');
-        const leaveBtn = document.getElementById('main-leave-btn');
-        const channelBtn = document.getElementById('voice-channel-btn');
-
-        if (myState.joined) {
-            joinBtn.style.display = 'none';
-            leaveBtn.style.display = 'inline-block';
-            channelBtn.classList.add('active');
-        } else {
-            joinBtn.style.display = 'inline-block';
-            leaveBtn.style.display = 'none';
-            channelBtn.classList.remove('active');
-        }
-    }
-
-    // --- Кнопки управления ---
-
+    // Управление микрофоном
     function toggleMic() {
-        myState.mic = !myState.mic;
-        localStream.getAudioTracks()[0].enabled = myState.mic;
+        if (!localStream) return;
+        isMicMuted = !isMicMuted;
+        localStream.getAudioTracks()[0].enabled = !isMicMuted;
         
         const btn = document.getElementById('btn-mic');
-        btn.classList.toggle('muted', !myState.mic);
-        
-        updateRowUI(myRole, myState, true); // Обновляем себя
-        broadcastState(); // Шлем инфо собеседнику
+        if (isMicMuted) btn.classList.add('muted');
+        else btn.classList.remove('muted');
     }
 
+    // Управление звуком (Deafen)
     function toggleDeafen() {
-        myState.sound = !myState.sound;
-        document.getElementById('remote-audio').muted = !myState.sound;
+        isDeafened = !isDeafened;
+        document.getElementById('remote-audio').muted = isDeafened;
         
         const btn = document.getElementById('btn-sound');
-        btn.classList.toggle('muted', !myState.sound);
-        
-        updateRowUI(myRole, myState, true); // Обновляем себя
-        broadcastState(); // Шлем инфо собеседнику
+        if (isDeafened) btn.classList.add('muted');
+        else btn.classList.remove('muted');
     }
 
 </script>
