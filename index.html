@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Наш Приватный Канал</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0f172a; color: white; }
+        .card { background: #1e293b; padding: 30px; border-radius: 24px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 320px; }
+        .btn { border: none; padding: 12px 20px; border-radius: 12px; font-size: 16px; cursor: pointer; margin: 5px; transition: 0.2s; width: 100%; }
+        .btn-blue { background: #3b82f6; color: white; }
+        .btn-pink { background: #ec4899; color: white; }
+        .btn-call { background: #10b981; color: white; margin-top: 20px; display: none; }
+        select { width: 100%; padding: 10px; margin-top: 15px; border-radius: 8px; background: #334155; color: white; border: 1px solid #475569; }
+        .status { margin: 15px 0; font-size: 0.9em; color: #94a3b8; }
+        #setup-sector { display: block; }
+        #call-sector { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="setup-sector">
+        <h3>Кто вы?</h3>
+        <button class="btn btn-blue" onclick="initPeer('armenia')">Я парень (Армения)</button>
+        <button class="btn btn-pink" onclick="initPeer('russia')">Я девушка (Россия)</button>
+        <p class="status">Нажмите кнопку, чтобы активировать связь</p>
+    </div>
+
+    <div id="call-sector">
+        <h3 id="display-role">...</h3>
+        <div class="status" id="status-text">Ожидание микрофона...</div>
+        
+        <button id="call-btn" class="btn btn-call" onclick="makeCall()">Позвонить собеседнику</button>
+        
+        <div style="text-align: left; margin-top: 20px;">
+            <label style="font-size: 0.8em; color: #94a3b8;">Выход звука:</label>
+            <select id="audio-output" onchange="changeAudioOutput(this.value)">
+                <option value="">По умолчанию</option>
+            </select>
+        </div>
+    </div>
+    
+    <audio id="remote-audio" autoplay></audio>
+</div>
+
+<script>
+    let myPeerId, targetPeerId, localStream, peer;
+    const secret = "key-777";
+
+    function initPeer(role) {
+        myPeerId = role + "-" + secret;
+        targetPeerId = (role === 'armenia' ? 'russia' : 'armenia') + "-" + secret;
+        
+        document.getElementById('setup-sector').style.display = 'none';
+        document.getElementById('call-sector').style.display = 'block';
+        document.getElementById('display-role').innerText = role === 'armenia' ? "Вы: Армения" : "Вы: Россия";
+
+        peer = new Peer(myPeerId);
+
+        peer.on('open', () => {
+            document.getElementById('status-text').innerText = "Готов к связи. Ждем собеседника.";
+            startMedia();
+        });
+
+        peer.on('call', (call) => {
+            call.answer(localStream);
+            handleStream(call);
+        });
+    }
+
+    async function startMedia() {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            document.getElementById('call-btn').style.display = 'block';
+            document.getElementById('status-text').innerText = "Микрофон включен";
+            
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const audioSelect = document.getElementById('audio-output');
+            
+            devices.forEach(device => {
+                if (device.kind === 'audiooutput') {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || `Динамик ${audioSelect.length + 1}`;
+                    audioSelect.appendChild(option);
+                }
+            });
+        } catch (err) {
+            alert("Нужен доступ к микрофону!");
+        }
+    }
+
+    async function changeAudioOutput(deviceId) {
+        const audio = document.getElementById('remote-audio');
+        if (typeof audio.setSinkId === 'function') {
+            try {
+                await audio.setSinkId(deviceId);
+                console.log(`Звук переключен на: ${deviceId}`);
+            } catch (err) {
+                console.error("Ошибка смены динамика:", err);
+            }
+        } else {
+            alert("Ваш браузер не поддерживает смену динамиков (используйте Chrome)");
+        }
+    }
+
+    function handleStream(call) {
+        call.on('stream', (remoteStream) => {
+            const audio = document.getElementById('remote-audio');
+            audio.srcObject = remoteStream;
+            document.getElementById('status-text').innerText = "В эфире!";
+        });
+    }
+
+    function makeCall() {
+        const call = peer.call(targetPeerId, localStream);
+        document.getElementById('status-text').innerText = "Вызываем...";
+        handleStream(call);
+        
+        call.on('error', () => {
+            alert("Собеседник еще не выбрал роль или не зашел на сайт");
+        });
+    }
+</script>
+
+</body>
+</html>
