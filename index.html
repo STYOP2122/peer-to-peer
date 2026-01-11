@@ -1,337 +1,162 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Clone Voice</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        /* --- Discord Theme Colors & Reset --- */
-        :root {
-            --bg-tertiary: #1e1f22; /* Sidebar */
-            --bg-secondary: #2b2d31; /* Channel List */
-            --bg-primary: #313338; /* Chat Area */
-            --text-normal: #dbdee1;
-            --text-muted: #949ba4;
-            --interactive-hover: #3f4147;
-            --interactive-active: #5865f2; /* Blurple */
-            --green: #23a559;
-            --red: #da373c;
-            --control-bg: #232428;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif; background: var(--bg-primary); color: var(--text-normal); height: 100vh; display: flex; overflow: hidden; }
-
-        /* --- Login Screen --- */
-        #login-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg-primary); display: flex; flex-direction: column;
-            align-items: center; justify-content: center; z-index: 1000;
-        }
-        .login-card {
-            background: var(--bg-secondary); padding: 30px; border-radius: 8px;
-            text-align: center; box-shadow: 0 8px 16px rgba(0,0,0,0.24); width: 300px;
-        }
-        .login-btn {
-            display: block; width: 100%; padding: 12px; margin: 10px 0; border: none;
-            border-radius: 4px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s;
-        }
-        .btn-arm { background: var(--interactive-active); }
-        .btn-rus { background: #eb459e; }
-        .btn-arm:hover, .btn-rus:hover { opacity: 0.9; transform: translateY(-1px); }
-
-        /* --- Main Layout --- */
-        .sidebar { width: 72px; background: var(--bg-tertiary); display: flex; flex-direction: column; align-items: center; padding-top: 12px; }
-        .server-icon { width: 48px; height: 48px; background: var(--interactive-active); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; transition: 0.2s; cursor: pointer; margin-bottom: 10px; }
-        .server-icon:hover { border-radius: 16px; background: #5865f2; }
-        
-        .channels { width: 240px; background: var(--bg-secondary); display: flex; flex-direction: column; }
-        .channel-header { padding: 12px 16px; border-bottom: 1px solid #1f2023; font-weight: bold; box-shadow: 0 1px 0 rgba(4,4,5,0.2); }
-        
-        .channel-list { padding: 8px; flex-grow: 1; }
-        .voice-channel {
-            padding: 8px; border-radius: 4px; color: var(--text-muted); cursor: pointer;
-            display: flex; align-items: center; margin-bottom: 2px;
-        }
-        .voice-channel:hover { background: var(--interactive-hover); color: var(--text-normal); }
-        .voice-channel.active { background: rgba(88, 101, 242, 0.1); color: white; }
-        .vc-icon { margin-right: 6px; width: 20px; height: 20px; fill: currentColor; }
-
-        /* --- User List inside Voice Channel --- */
-        .user-container { padding-left: 28px; margin-top: 4px; display: none; }
-        .user-row { display: flex; align-items: center; padding: 6px 8px; border-radius: 4px; margin-bottom: 2px; }
-        .user-row.connected { background: transparent; }
-        .avatar { width: 24px; height: 24px; border-radius: 50%; margin-right: 8px; background: #5c5e66; position: relative; border: 2px solid transparent;}
-        .avatar.speaking { border-color: var(--green); }
-        .username { font-size: 14px; font-weight: 500; color: var(--text-muted); }
-        .user-row.online .username { color: white; }
-        .user-row.online .avatar { background: var(--interactive-active); }
-        
-        /* Status Dot */
-        .status-indicator { width: 10px; height: 10px; border-radius: 50%; background: #4e5058; border: 2px solid var(--bg-secondary); position: absolute; bottom: -2px; right: -2px; }
-        .user-row.online .status-indicator { background: var(--green); }
-
-        /* --- Bottom Control Bar (The "User Area") --- */
-        .user-area {
-            background: var(--control-bg); padding: 8px; display: flex; align-items: center; justify-content: space-between;
-        }
-        .my-info { display: flex; align-items: center; }
-        .my-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--interactive-active); margin-right: 8px; }
-        .my-name { font-size: 13px; font-weight: bold; display: block; }
-        .my-status { font-size: 11px; color: var(--text-muted); }
-        
-        .controls { display: flex; gap: 4px; }
-        .control-btn {
-            width: 32px; height: 32px; border-radius: 4px; border: none; background: transparent;
-            color: var(--text-normal); cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative;
-        }
-        .control-btn:hover { background: var(--interactive-hover); }
-        .control-btn svg { width: 20px; height: 20px; fill: currentColor; }
-        
-        .strikethrough { position: absolute; width: 100%; height: 2px; background: var(--red); transform: rotate(45deg); display: none; }
-        .control-btn.muted .strikethrough { display: block; }
-        .control-btn.muted { color: var(--red); }
-
-        /* --- Main Chat Area (Placeholder) --- */
-        .chat-area { flex-grow: 1; background: var(--bg-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); }
-        .chat-placeholder { text-align: center; max-width: 400px; }
-        
-        /* Join/Leave Button in Chat Area */
-        .action-btn {
-            padding: 10px 24px; border-radius: 4px; font-weight: bold; border: none; cursor: pointer; margin-top: 20px; font-size: 14px;
-        }
-        .btn-join { background: var(--green); color: white; }
-        .btn-leave { background: var(--red); color: white; display: none; }
-
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Наш Канал</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --bg: #313338; --sidebar: #2b2d31; --card: #1e1f22; --text: #dbdee1; --accent: #5865f2; --green: #23a559; --red: #f23f42; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .app-container { background: var(--card); width: 90%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .header { background: var(--sidebar); padding: 15px; text-align: center; border-bottom: 1px solid #1e1f22; font-weight: bold; }
+        .channel-info { padding: 20px; text-align: center; }
+        .user-row { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #4e5058; margin-right: 10px; }
+        .online { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px; background: var(--sidebar); }
+        .btn { border: none; padding: 12px; border-radius: 5px; cursor: pointer; font-weight: 600; color: white; transition: 0.2s; }
+        .btn-call { grid-column: span 2; background: var(--green); margin-bottom: 10px; }
+        .btn-mute { background: #4e5058; }
+        .btn-mute.active { background: var(--red); }
+        .btn-hangup { grid-column: span 2; background: var(--red); display: none; }
+        #view-setup { padding: 30px; text-align: center; }
+        .setup-title { margin-bottom: 20px; font-size: 1.2em; }
+    </style>
 </head>
 <body>
 
-<div id="login-screen">
-    <div class="login-card">
-        <h2 style="margin-bottom: 20px; color:white;">Выбор роли</h2>
-        <button class="login-btn btn-arm" onclick="initApp('armenia')">Я ПАРЕНЬ (Армения)</button>
-        <button class="login-btn btn-rus" onclick="initApp('russia')">Я ДЕВУШКА (Россия)</button>
-    </div>
-</div>
+<div class="app-container">
+    <div class="header">🔊 ГОЛОСОВОЙ КАНАЛ</div>
 
-<div class="sidebar">
-    <div class="server-icon">D</div>
-</div>
+    <div id="view-setup">
+        <div class="setup-title">Кто заходит в канал?</div>
+        <button class="btn btn-call" style="background: var(--accent);" onclick="init('armenia')">Я ПАРЕНЬ (Армения)</button>
+        <button class="btn btn-call" style="background: #eb459e;" onclick="init('russia')">Я ДЕВУШКА (Россия)</button>
+    </div>
 
-<div class="channels">
-    <div class="channel-header">Личный Сервер</div>
-    
-    <div class="channel-list">
-        <div class="voice-channel" id="voice-channel-btn" onclick="toggleChannelJoin()">
-            <svg class="vc-icon" viewBox="0 0 24 24"><path d="M11.383 3.07904C11.009 2.92504 10.579 3.01004 10.293 3.29604L6 8.00204H3C2.45 8.00204 2 8.45304 2 9.00204V15.002C2 15.552 2.45 16.002 3 16.002H6L10.293 20.71C10.579 20.996 11.009 21.082 11.383 20.927C11.758 20.772 12 20.407 12 20.002V4.00204C12 3.59904 11.758 3.23204 11.383 3.07904ZM14 5.00195V7.00195C16.757 7.00195 19 9.24595 19 12.002C19 14.759 16.757 17.002 14 17.002V19.002C17.86 19.002 21 15.863 21 12.002C21 8.14295 17.86 5.00195 14 5.00195Z"></path></svg>
-            <span>Голосовой канал</span>
-        </div>
+    <div id="view-chat" style="display:none;">
+        <div class="channel-info">
+            <div class="user-row">
+                <span>🇦🇲 Армения</span>
+                <div id="status-armenia" class="status-dot"></div>
+            </div>
+            <div class="user-row">
+                <span>🇷🇺 Россия</span>
+                <div id="status-russia" class="status-dot"></div>
+            </div>
+            <div id="call-status" style="font-size: 0.8em; color: #949ba4; margin-top: 10px;">Подключение к сети...</div>
+        </div>
 
-        <div class="user-container" id="channel-users">
-            <div class="user-row" id="row-armenia">
-                <div class="avatar">
-                    <div class="status-indicator"></div>
-                </div>
-                <span class="username">Армения</span>
-            </div>
-            <div class="user-row" id="row-russia">
-                <div class="avatar" style="background: #eb459e;">
-                    <div class="status-indicator"></div>
-                </div>
-                <span class="username">Россия</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="user-area">
-        <div class="my-info">
-            <div class="my-avatar" id="my-avatar-img"></div>
-            <div>
-                <span class="my-name" id="my-ui-name">...</span>
-                <span class="my-status">В сети</span>
-            </div>
-        </div>
-        <div class="controls">
-            <button class="control-btn" id="btn-mic" onclick="toggleMic()">
-                <div class="strikethrough"></div>
-                <svg viewBox="0 0 24 24"><path d="M12 2C9.243 2 7 4.243 7 7V13C7 15.757 9.243 18 12 18C14.757 18 17 15.757 17 13V7C17 4.243 14.757 2 12 2ZM19 13C19 16.486 16.486 19 13 19.899V22H11V19.899C7.514 19 5 16.486 5 13H7C7 15.757 9.243 18 12 18C14.757 18 17 15.757 17 13H19Z"></path></svg>
-            </button>
-            <button class="control-btn" id="btn-sound" onclick="toggleDeafen()">
-                <div class="strikethrough"></div>
-                <svg viewBox="0 0 24 24"><path d="M12 3C7.029 3 3 7.029 3 12V16C3 18.209 4.791 20 7 20H8V11H5V12C5 8.131 8.131 5 12 5C15.869 5 19 8.131 19 12V13H16V22H17C19.209 22 21 20.209 21 18V12C21 7.029 16.971 3 12 3Z"></path></svg>
-            </button>
-        </div>
-    </div>
-</div>
-
-<div class="chat-area">
-    <div class="chat-placeholder">
-        <h2>Добро пожаловать</h2>
-        <p>Это приватный сервер. Нажмите на Голосовой канал слева, чтобы войти.</p>
-        <button id="main-join-btn" class="action-btn btn-join" onclick="toggleChannelJoin()">Войти в канал</button>
-        <button id="main-leave-btn" class="action-btn btn-leave" onclick="toggleChannelJoin()">Отключиться</button>
-    </div>
+        <div class="controls">
+            <button id="call-btn" class="btn btn-call" onclick="makeCall()">ПРИСОЕДИНИТЬСЯ</button>
+            <button id="hangup-btn" class="btn btn-hangup" onclick="hangUp()">ПОКИНУТЬ</button>
+            
+            <button id="mute-mic" class="btn btn-mute" onclick="toggleMic()">🎤 Микро: ВКЛ</button>
+            <button id="mute-audio" class="btn btn-mute" onclick="toggleAudio()">🎧 Звук: ВКЛ</button>
+        </div>
+    </div>
 </div>
 
 <audio id="remote-audio" autoplay playsinline></audio>
 
 <script>
-    const SECRET_KEY = "DISCORD-CLONE-2026";
-    let peer, localStream, currentCall, myRole, targetId;
-    let isMicMuted = false;
-    let isDeafened = false;
-    let isJoined = false;
+    const SECRET_KEY = "STABLE-VOICE-2026";
+    let peer, localStream, currentCall, myRole;
+    let isMicMuted = false;
+    let isAudioMuted = false;
 
-    // Инициализация при выборе роли
-    async function initApp(role) {
-        myRole = role;
-        const myId = `${role}-${SECRET_KEY}`;
-        targetId = (role === 'armenia' ? 'russia' : 'armenia') + "-" + SECRET_KEY;
+    async function init(role) {
+        myRole = role;
+        const myId = `${role}-${SECRET_KEY}`;
+        const targetId = (role === 'armenia' ? 'russia' : 'armenia') + "-" + SECRET_KEY;
 
-        document.getElementById('login-screen').style.display = 'none';
-        
-        // Настройка UI под роль
-        document.getElementById('my-ui-name').innerText = role === 'armenia' ? "Армения" : "Россия";
-        if(role === 'russia') document.getElementById('my-avatar-img').style.backgroundColor = '#eb459e';
+        document.getElementById('view-setup').style.display = 'none';
+        document.getElementById('view-chat').style.display = 'block';
+        document.getElementById(`status-${role}`).classList.add('online');
 
-        try {
-            // Сразу получаем доступ к микрофону, но пока не звоним
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            peer = new Peer(myId, {
-                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }] }
-            });
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            peer = new Peer(myId, {
+                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }, { url: 'stun:stun1.l.google.com:19302' }] }
+            });
 
-            peer.on('open', () => {
-                console.log("My ID:", myId);
-                startPresenceCheck(); // Начинаем проверять, в сети ли другой
-            });
+            peer.on('open', () => {
+                document.getElementById('call-status').innerText = "В сети. Ожидание собеседника...";
+                checkPeerStatus(targetId);
+            });
 
-            peer.on('call', (call) => {
-                // Если нам звонят (другой человек вошел в канал)
-                if(isJoined) {
-                    call.answer(localStream);
-                    handleCall(call);
-                }
-            });
+            peer.on('call', (call) => {
+                currentCall = call;
+                call.answer(localStream);
+                handleCall(call);
+            });
 
-        } catch (e) {
-            alert("Ошибка доступа к микрофону: " + e);
-        }
-    }
+        } catch (e) { alert("Нужен микрофон и HTTPS!"); }
+    }
 
-    // Вход/Выход из канала
-    function toggleChannelJoin() {
-        isJoined = !isJoined;
-        const userContainer = document.getElementById('channel-users');
-        const joinBtn = document.getElementById('main-join-btn');
-        const leaveBtn = document.getElementById('main-leave-btn');
-        const channelBtn = document.getElementById('voice-channel-btn');
-        const myRow = document.getElementById(`row-${myRole}`);
+    // Проверка, сидит ли второй человек в канале
+    function checkPeerStatus(targetId) {
+        setInterval(() => {
+            const conn = peer.connect(targetId, { reliable: false });
+            conn.on('open', () => {
+                document.getElementById(`status-${myRole === 'armenia' ? 'russia' : 'armenia'}`).classList.add('online');
+                conn.close();
+            });
+            // Если через 3 сек нет ответа - считаем офлайн
+            setTimeout(() => {
+                if (!conn.open) document.getElementById(`status-${myRole === 'armenia' ? 'russia' : 'armenia'}`).classList.remove('online');
+            }, 3000);
+        }, 5000);
+    }
 
-        if (isJoined) {
-            // UI Update: Entered
-            userContainer.style.display = 'block';
-            joinBtn.style.display = 'none';
-            leaveBtn.style.display = 'inline-block';
-            channelBtn.classList.add('active');
-            myRow.classList.add('online'); // Подсвечиваем себя
+    function makeCall() {
+        const targetId = (myRole === 'armenia' ? 'russia' : 'armenia') + "-" + SECRET_KEY;
+        currentCall = peer.call(targetId, localStream);
+        handleCall(currentCall);
+    }
 
-            // Логика звонка
-            // Пробуем позвонить. Если там никого нет, PeerJS просто не дозвонится, это ок.
-            if(peer) {
-                currentCall = peer.call(targetId, localStream);
-                if(currentCall) handleCall(currentCall);
-            }
+    function handleCall(call) {
+        document.getElementById('call-btn').style.display = 'none';
+        document.getElementById('hangup-btn').style.display = 'block';
+        document.getElementById('call-status').innerText = "Связь установлена";
 
-        } else {
-            // UI Update: Left
-            userContainer.style.display = 'none';
-            joinBtn.style.display = 'inline-block';
-            leaveBtn.style.display = 'none';
-            channelBtn.classList.remove('active');
-            myRow.classList.remove('online');
+        call.on('stream', stream => {
+            const audio = document.getElementById('remote-audio');
+            audio.srcObject = stream;
+        });
+        call.on('close', resetUI);
+    }
 
-            // Разрыв связи
-            if (currentCall) currentCall.close();
-            document.getElementById('remote-audio').srcObject = null;
-        }
-    }
+    function toggleMic() {
+        isMicMuted = !isMicMuted;
+        localStream.getAudioTracks()[0].enabled = !isMicMuted;
+        const btn = document.getElementById('mute-mic');
+        btn.innerText = isMicMuted ? "🎤 Микро: ВЫКЛ" : "🎤 Микро: ВКЛ";
+        btn.classList.toggle('active', isMicMuted);
+    }
 
-    // Обработка звонка
-    function handleCall(call) {
-        currentCall = call;
-        
-        call.on('stream', stream => {
-            const audio = document.getElementById('remote-audio');
-            audio.srcObject = stream;
-            // Подсветка говорящего (имитация)
-            document.getElementById(`row-${myRole === 'armenia' ? 'russia' : 'armenia'}`).querySelector('.avatar').classList.add('speaking');
-        });
+    function toggleAudio() {
+        isAudioMuted = !isAudioMuted;
+        document.getElementById('remote-audio').muted = isAudioMuted;
+        const btn = document.getElementById('mute-audio');
+        btn.innerText = isAudioMuted ? "🎧 Звук: ВЫКЛ" : "🎧 Звук: ВКЛ";
+        btn.classList.toggle('active', isAudioMuted);
+    }
 
-        call.on('close', () => {
-            document.getElementById(`row-${myRole === 'armenia' ? 'russia' : 'armenia'}`).querySelector('.avatar').classList.remove('speaking');
-        });
-    }
+    function hangUp() {
+        if (currentCall) currentCall.close();
+        resetUI();
+    }
 
-    // Проверка "онлайна" собеседника (Хартбит)
-    function startPresenceCheck() {
-        setInterval(() => {
-            const conn = peer.connect(targetId, { reliable: false });
-            
-            conn.on('open', () => {
-                // Если соединение открылось, значит он там
-                updatePeerStatus(true);
-                conn.close();
-            });
-
-            // Если ошибка (таймаут), значит его нет
-            conn.on('error', () => updatePeerStatus(false));
-            
-            // Если через 2 сек не открылось - считаем офлайн (грубая проверка)
-            setTimeout(() => { 
-                if(!conn.open) updatePeerStatus(false); 
-            }, 2000);
-
-        }, 4000);
-    }
-
-    function updatePeerStatus(isOnline) {
-        const otherRole = myRole === 'armenia' ? 'russia' : 'armenia';
-        const row = document.getElementById(`row-${otherRole}`);
-        if(isOnline) {
-            row.classList.add('online');
-            // Если мы оба "в канале" и еще нет звонка, можно попробовать перезвонить
-            // (в простой версии оставим инициацию на вход)
-        } else {
-            row.classList.remove('online');
-            row.querySelector('.avatar').classList.remove('speaking');
-        }
-    }
-
-    // Управление микрофоном
-    function toggleMic() {
-        if (!localStream) return;
-        isMicMuted = !isMicMuted;
-        localStream.getAudioTracks()[0].enabled = !isMicMuted;
-        
-        const btn = document.getElementById('btn-mic');
-        if (isMicMuted) btn.classList.add('muted');
-        else btn.classList.remove('muted');
-    }
-
-    // Управление звуком (Deafen)
-    function toggleDeafen() {
-        isDeafened = !isDeafened;
-        document.getElementById('remote-audio').muted = isDeafened;
-        
-        const btn = document.getElementById('btn-sound');
-        if (isDeafened) btn.classList.add('muted');
-        else btn.classList.remove('muted');
-    }
-
+    function resetUI() {
+        document.getElementById('call-btn').style.display = 'block';
+        document.getElementById('hangup-btn').style.display = 'none';
+        document.getElementById('call-status').innerText = "Связь завершена";
+    }
 </script>
 </body>
 </html>
+
+Сделай чтобы было как в дискорде, чтобы был канал куда могут зайти, и было видно есть кто то внутри уже или нет, так-же добавь кнопку для выключения микрофона
