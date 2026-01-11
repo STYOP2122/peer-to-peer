@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Приватная связь</title>
+    <title>Private Link</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --pink: #ec4899; --green: #10b981; --red: #ef4444; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
         .card { background: var(--card); padding: 30px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 90%; max-width: 350px; text-align: center; }
-        .btn { border: none; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-bottom: 12px; transition: 0.2s; -webkit-tap-highlight-color: transparent; }
+        .btn { border: none; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-bottom: 12px; transition: 0.2s; }
         .btn-blue { background: var(--accent); color: white; }
         .btn-pink { background: var(--pink); color: white; }
         .btn-call { background: var(--green); color: white; margin-top: 15px; }
         .btn-hangup { background: var(--red); color: white; margin-top: 15px; display: none; }
-        .status-box { margin: 20px 0; padding: 10px; border-radius: 10px; background: rgba(0,0,0,0.2); font-size: 14px; color: #94a3b8; }
-        .loader { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; margin-right: 5px; }
-        .active-blink { animation: blink 1s infinite; background: var(--green) !important; box-shadow: 0 0 10px var(--green); }
-        @keyframes blink { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        .status-box { margin: 20px 0; padding: 12px; border-radius: 12px; background: rgba(0,0,0,0.3); font-size: 14px; border: 1px solid #334155; }
+        .loader { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #475569; margin-right: 8px; }
+        .online { background: var(--green); box-shadow: 0 0 10px var(--green); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
         select { width: 100%; padding: 12px; border-radius: 10px; background: #334155; color: white; border: 1px solid #475569; margin-top: 10px; }
     </style>
 </head>
@@ -25,24 +25,23 @@
 
 <div class="card">
     <div id="view-setup">
-        <h2 style="margin-top:0">Кто вы?</h2>
+        <h2 style="margin-top:0">Выбор роли</h2>
         <button class="btn btn-blue" onclick="startApp('armenia')">Я ПАРЕНЬ (Армения)</button>
         <button class="btn btn-pink" onclick="startApp('russia')">Я ДЕВУШКА (Россия)</button>
     </div>
 
     <div id="view-call">
-        <h3 id="role-name" style="color: #94a3b8;">Настройка...</h3>
+        <h3 id="role-name" style="color: #94a3b8; margin-bottom: 5px;">Настройка...</h3>
         <div class="status-box">
-            <span id="loader" class="loader"></span>
-            <span id="status-text">Ожидание...</span>
+            <span id="dot" class="loader"></span>
+            <span id="status-text">Инициализация...</span>
         </div>
         
         <button id="call-btn" class="btn btn-call" style="display:none" onclick="makeCall()">ПОЗВОНИТЬ</button>
-        
-        <button id="hangup-btn" class="btn btn-hangup" onclick="hangUp()">ЗАВЕРШИТЬ ЗВОНОК</button>
+        <button id="hangup-btn" class="btn btn-hangup" onclick="hangUp()">ЗАВЕРШИТЬ</button>
         
         <div id="output-settings" style="text-align: left; margin-top: 20px; display:none;">
-            <label style="font-size: 11px; color: #94a3b8;">ВЫХОД ЗВУКА:</label>
+            <label style="font-size: 11px; color: #94a3b8; padding-left: 5px;">ВЫВОД ЗВУКА:</label>
             <select id="audio-output" onchange="changeOutput(this.value)">
                 <option value="">По умолчанию</option>
             </select>
@@ -53,7 +52,8 @@
 <audio id="remote-audio" autoplay playsinline></audio>
 
 <script>
-    const SECRET_KEY = "MY-PRIVATE-TALK-2026"; 
+    // 1. Уникальный ключ (измените на свой секрет)
+    const SECRET_KEY = "OUR-STABLE-LINK-2026"; 
     let myPeerId, targetPeerId, localStream, peer, currentCall;
 
     async function startApp(role) {
@@ -62,29 +62,49 @@
         
         document.getElementById('view-setup').style.display = 'none';
         document.getElementById('view-call').style.display = 'block';
-        document.getElementById('role-name').innerText = role === 'armenia' ? "Армения 🇦🇲" : "Россия 🇷🇺";
+        document.getElementById('role-name').innerText = (role === 'armenia' ? "Армения 🇦🇲" : "Россия 🇷🇺");
 
         try {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            document.getElementById('status-text').innerText = "Микрофон активен";
+            // Запрашиваем микрофон
+            localStream = await navigator.mediaDevices.getUserMedia({ 
+                audio: { echoCancellation: true, noiseSuppression: true } 
+            });
+            document.getElementById('status-text').innerText = "Микрофон готов";
             document.getElementById('call-btn').style.display = 'block';
 
+            // Инициализация PeerJS с мощными STUN-серверами
             peer = new Peer(myPeerId, {
-                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }, { url: 'stun:stun1.l.google.com:19302' }] }
+                config: {
+                    'iceServers': [
+                        { url: 'stun:stun.l.google.com:19302' },
+                        { url: 'stun:stun1.l.google.com:19302' },
+                        { url: 'stun:stun2.l.google.com:19302' },
+                        { url: 'stun:stun3.l.google.com:19302' },
+                        { url: 'stun:stun4.l.google.com:19302' }
+                    ]
+                }
             });
 
-            peer.on('open', () => { 
-                document.getElementById('status-text').innerText = "В сети. Можно звонить."; 
+            peer.on('open', (id) => {
+                document.getElementById('status-text').innerText = "В сети. Ожидание...";
+                document.getElementById('dot').classList.add('online');
             });
 
-            // Когда кто-то звонит нам
             peer.on('call', (call) => {
                 currentCall = call;
                 call.answer(localStream);
-                setupRemoteStream(call);
+                setupCallHandlers(call);
             });
 
-            // Настройка динамиков
+            peer.on('error', (err) => {
+                console.error('PeerJS Error:', err.type);
+                if(err.type === 'peer-unavailable') {
+                    alert("Собеседник еще не зашел в сеть.");
+                    resetUI();
+                }
+            });
+
+            // Список устройств вывода
             const devices = await navigator.mediaDevices.enumerateDevices();
             const select = document.getElementById('audio-output');
             const outputs = devices.filter(d => d.kind === 'audiooutput');
@@ -96,56 +116,45 @@
                     select.appendChild(opt);
                 });
             }
+
         } catch (err) {
-            alert("Ошибка: Проверьте HTTPS и доступ к микрофону");
+            document.getElementById('status-text').innerText = "Ошибка доступа!";
+            alert("Нужен HTTPS и разрешение на микрофон.");
         }
-    }
-
-    function setupRemoteStream(call) {
-        // Меняем кнопки
-        document.getElementById('call-btn').style.display = 'none';
-        document.getElementById('hangup-btn').style.display = 'block';
-        document.getElementById('loader').classList.add('active-blink');
-
-        call.on('stream', (stream) => {
-            const audio = document.getElementById('remote-audio');
-            audio.srcObject = stream;
-            audio.play();
-            document.getElementById('status-text').innerText = "РАЗГОВОР...";
-        });
-
-        // Если собеседник нажал "Завершить", у нас тоже всё сбросится
-        call.on('close', () => { resetUI(); });
-        call.on('error', () => { resetUI(); });
     }
 
     function makeCall() {
         document.getElementById('status-text').innerText = "Вызов...";
         currentCall = peer.call(targetPeerId, localStream);
-        setupRemoteStream(currentCall);
+        setupCallHandlers(currentCall);
     }
 
-    // Функция завершения звонка
+    function setupCallHandlers(call) {
+        document.getElementById('call-btn').style.display = 'none';
+        document.getElementById('hangup-btn').style.display = 'block';
+
+        call.on('stream', (stream) => {
+            const audio = document.getElementById('remote-audio');
+            audio.srcObject = stream;
+            audio.play().catch(e => console.log("Play blocked"));
+            document.getElementById('status-text').innerText = "ГОВОРИМ";
+        });
+
+        call.on('close', () => resetUI());
+        call.on('error', () => resetUI());
+    }
+
     function hangUp() {
-        if (currentCall) {
-            currentCall.close(); // Это отправит сигнал "close" другому участнику
-        }
+        if (currentCall) currentCall.close();
         resetUI();
     }
 
     function resetUI() {
         const audio = document.getElementById('remote-audio');
         audio.srcObject = null;
-        document.getElementById('status-text').innerText = "Звонок завершен";
+        document.getElementById('status-text').innerText = "В сети. Ожидание...";
         document.getElementById('call-btn').style.display = 'block';
         document.getElementById('hangup-btn').style.display = 'none';
-        document.getElementById('loader').classList.remove('active-blink');
-        
-        setTimeout(() => {
-            if (!currentCall || !currentCall.open) {
-                document.getElementById('status-text').innerText = "В сети. Можно звонить.";
-            }
-        }, 2000);
     }
 
     async function changeOutput(id) {
