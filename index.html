@@ -15,12 +15,10 @@
         .btn-call { background: var(--green); color: white; margin-top: 15px; }
         .btn-hangup { background: var(--red); color: white; margin-top: 15px; display: none; }
         .status-box { margin: 20px 0; padding: 10px; border-radius: 10px; background: rgba(0,0,0,0.2); font-size: 14px; color: #94a3b8; }
-        select { width: 100%; padding: 12px; border-radius: 10px; background: #334155; color: white; border: 1px solid #475569; margin-top: 10px; font-size: 14px; }
-        #view-setup { display: block; }
-        #view-call { display: none; }
         .loader { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; margin-right: 5px; }
         .active-blink { animation: blink 1s infinite; background: var(--green) !important; box-shadow: 0 0 10px var(--green); }
         @keyframes blink { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        select { width: 100%; padding: 12px; border-radius: 10px; background: #334155; color: white; border: 1px solid #475569; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -33,17 +31,18 @@
     </div>
 
     <div id="view-call">
-        <h3 id="role-name" style="margin-top:0; color: #94a3b8;">Настройка...</h3>
+        <h3 id="role-name" style="color: #94a3b8;">Настройка...</h3>
         <div class="status-box">
             <span id="loader" class="loader"></span>
-            <span id="status-text">Запрос микрофона...</span>
+            <span id="status-text">Ожидание...</span>
         </div>
         
         <button id="call-btn" class="btn btn-call" style="display:none" onclick="makeCall()">ПОЗВОНИТЬ</button>
-        <button id="hangup-btn" class="btn btn-hangup" onclick="hangUp()">СБРОСИТЬ</button>
+        
+        <button id="hangup-btn" class="btn btn-hangup" onclick="hangUp()">ЗАВЕРШИТЬ ЗВОНОК</button>
         
         <div id="output-settings" style="text-align: left; margin-top: 20px; display:none;">
-            <label style="font-size: 12px; color: #94a3b8;">Выход звука:</label>
+            <label style="font-size: 11px; color: #94a3b8;">ВЫХОД ЗВУКА:</label>
             <select id="audio-output" onchange="changeOutput(this.value)">
                 <option value="">По умолчанию</option>
             </select>
@@ -54,7 +53,7 @@
 <audio id="remote-audio" autoplay playsinline></audio>
 
 <script>
-    const SECRET_KEY = "MY-SECRET-KEY-2026"; // Обязательно измените на своё!
+    const SECRET_KEY = "MY-PRIVATE-TALK-2026"; 
     let myPeerId, targetPeerId, localStream, peer, currentCall;
 
     async function startApp(role) {
@@ -63,26 +62,29 @@
         
         document.getElementById('view-setup').style.display = 'none';
         document.getElementById('view-call').style.display = 'block';
-        document.getElementById('role-name').innerText = role === 'armenia' ? "Вы: Армения" : "Вы: Россия";
+        document.getElementById('role-name').innerText = role === 'armenia' ? "Армения 🇦🇲" : "Россия 🇷🇺";
 
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            document.getElementById('status-text').innerText = "Микрофон готов";
+            document.getElementById('status-text').innerText = "Микрофон активен";
             document.getElementById('call-btn').style.display = 'block';
 
             peer = new Peer(myPeerId, {
                 config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }, { url: 'stun:stun1.l.google.com:19302' }] }
             });
 
-            peer.on('open', () => { document.getElementById('status-text').innerText = "В сети. Можно звонить."; });
+            peer.on('open', () => { 
+                document.getElementById('status-text').innerText = "В сети. Можно звонить."; 
+            });
 
+            // Когда кто-то звонит нам
             peer.on('call', (call) => {
                 currentCall = call;
                 call.answer(localStream);
                 setupRemoteStream(call);
             });
 
-            // Настройка списка динамиков
+            // Настройка динамиков
             const devices = await navigator.mediaDevices.enumerateDevices();
             const select = document.getElementById('audio-output');
             const outputs = devices.filter(d => d.kind === 'audiooutput');
@@ -95,11 +97,12 @@
                 });
             }
         } catch (err) {
-            alert("Нужен доступ к микрофону!");
+            alert("Ошибка: Проверьте HTTPS и доступ к микрофону");
         }
     }
 
     function setupRemoteStream(call) {
+        // Меняем кнопки
         document.getElementById('call-btn').style.display = 'none';
         document.getElementById('hangup-btn').style.display = 'block';
         document.getElementById('loader').classList.add('active-blink');
@@ -111,6 +114,7 @@
             document.getElementById('status-text').innerText = "РАЗГОВОР...";
         });
 
+        // Если собеседник нажал "Завершить", у нас тоже всё сбросится
         call.on('close', () => { resetUI(); });
         call.on('error', () => { resetUI(); });
     }
@@ -121,9 +125,10 @@
         setupRemoteStream(currentCall);
     }
 
+    // Функция завершения звонка
     function hangUp() {
         if (currentCall) {
-            currentCall.close(); // Закрываем звонок у себя
+            currentCall.close(); // Это отправит сигнал "close" другому участнику
         }
         resetUI();
     }
@@ -131,10 +136,16 @@
     function resetUI() {
         const audio = document.getElementById('remote-audio');
         audio.srcObject = null;
-        document.getElementById('status-text').innerText = "В сети. Можно звонить.";
+        document.getElementById('status-text').innerText = "Звонок завершен";
         document.getElementById('call-btn').style.display = 'block';
         document.getElementById('hangup-btn').style.display = 'none';
         document.getElementById('loader').classList.remove('active-blink');
+        
+        setTimeout(() => {
+            if (!currentCall || !currentCall.open) {
+                document.getElementById('status-text').innerText = "В сети. Можно звонить.";
+            }
+        }, 2000);
     }
 
     async function changeOutput(id) {
