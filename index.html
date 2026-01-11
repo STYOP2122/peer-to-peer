@@ -1,160 +1,160 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Наш Канал</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        :root { --bg: #313338; --sidebar: #2b2d31; --card: #1e1f22; --text: #dbdee1; --accent: #5865f2; --green: #23a559; --red: #f23f42; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .app-container { background: var(--card); width: 90%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-        .header { background: var(--sidebar); padding: 15px; text-align: center; border-bottom: 1px solid #1e1f22; font-weight: bold; }
-        .channel-info { padding: 20px; text-align: center; }
-        .user-row { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #4e5058; margin-right: 10px; }
-        .online { background: var(--green); box-shadow: 0 0 8px var(--green); }
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px; background: var(--sidebar); }
-        .btn { border: none; padding: 12px; border-radius: 5px; cursor: pointer; font-weight: 600; color: white; transition: 0.2s; }
-        .btn-call { grid-column: span 2; background: var(--green); margin-bottom: 10px; }
-        .btn-mute { background: #4e5058; }
-        .btn-mute.active { background: var(--red); }
-        .btn-hangup { grid-column: span 2; background: var(--red); display: none; }
-        #view-setup { padding: 30px; text-align: center; }
-        .setup-title { margin-bottom: 20px; font-size: 1.2em; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Наш Канал</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --bg: #313338; --sidebar: #2b2d31; --card: #1e1f22; --text: #dbdee1; --accent: #5865f2; --green: #23a559; --red: #f23f42; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .app-container { background: var(--card); width: 90%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .header { background: var(--sidebar); padding: 15px; text-align: center; border-bottom: 1px solid #1e1f22; font-weight: bold; }
+        .channel-info { padding: 20px; text-align: center; }
+        .user-row { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #4e5058; margin-right: 10px; }
+        .online { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px; background: var(--sidebar); }
+        .btn { border: none; padding: 12px; border-radius: 5px; cursor: pointer; font-weight: 600; color: white; transition: 0.2s; }
+        .btn-call { grid-column: span 2; background: var(--green); margin-bottom: 10px; }
+        .btn-mute { background: #4e5058; }
+        .btn-mute.active { background: var(--red); }
+        .btn-hangup { grid-column: span 2; background: var(--red); display: none; }
+        #view-setup { padding: 30px; text-align: center; }
+        .setup-title { margin-bottom: 20px; font-size: 1.2em; }
+    </style>
 </head>
 <body>
 
 <div class="app-container">
-    <div class="header">ГОЛОСОВОЙ КАНАЛ</div>
+    <div class="header">🔊 ГОЛОСОВОЙ КАНАЛ</div>
 
-    <div id="view-setup">
-        <div class="setup-title">Кто заходит в канал?</div>
-        <button class="btn btn-call" style="background: var(--accent);" onclick="init('armenia')">Я ПАРЕНЬ (Армения)</button>
-        <button class="btn btn-call" style="background: #eb459e;" onclick="init('russia')">Я ДЕВУШКА (Россия)</button>
-    </div>
+    <div id="view-setup">
+        <div class="setup-title">Кто заходит в канал?</div>
+        <button class="btn btn-call" style="background: var(--accent);" onclick="init('armenia')">Я ПАРЕНЬ (Армения)</button>
+        <button class="btn btn-call" style="background: #eb459e;" onclick="init('russia')">Я ДЕВУШКА (Россия)</button>
+    </div>
 
-    <div id="view-chat" style="display:none;">
-        <div class="channel-info">
-            <div class="user-row">
-                <span>🇦🇲 Армения</span>
-                <div id="status-armenia" class="status-dot"></div>
-            </div>
-            <div class="user-row">
-                <span>🇷🇺 Россия</span>
-                <div id="status-russia" class="status-dot"></div>
-            </div>
-            <div id="call-status" style="font-size: 0.8em; color: #949ba4; margin-top: 10px;">Подключение к сети...</div>
-        </div>
+    <div id="view-chat" style="display:none;">
+        <div class="channel-info">
+            <div class="user-row">
+                <span>🇦🇲 Армения</span>
+                <div id="status-armenia" class="status-dot"></div>
+            </div>
+            <div class="user-row">
+                <span>🇷🇺 Россия</span>
+                <div id="status-russia" class="status-dot"></div>
+            </div>
+            <div id="call-status" style="font-size: 0.8em; color: #949ba4; margin-top: 10px;">Подключение к сети...</div>
+        </div>
 
-        <div class="controls">
-            <button id="call-btn" class="btn btn-call" onclick="makeCall()">ПРИСОЕДИНИТЬСЯ</button>
-            <button id="hangup-btn" class="btn btn-hangup" onclick="hangUp()">ПОКИНУТЬ</button>
-            
-            <button id="mute-mic" class="btn btn-mute" onclick="toggleMic()">🎤 Микро: ВКЛ</button>
-            <button id="mute-audio" class="btn btn-mute" onclick="toggleAudio()">🎧 Звук: ВКЛ</button>
-        </div>
-    </div>
+        <div class="controls">
+            <button id="call-btn" class="btn btn-call" onclick="makeCall()">ПРИСОЕДИНИТЬСЯ</button>
+            <button id="hangup-btn" class="btn btn-hangup" onclick="hangUp()">ПОКИНУТЬ</button>
+            
+            <button id="mute-mic" class="btn btn-mute" onclick="toggleMic()">🎤 Микро: ВКЛ</button>
+            <button id="mute-audio" class="btn btn-mute" onclick="toggleAudio()">🎧 Звук: ВКЛ</button>
+        </div>
+    </div>
 </div>
 
 <audio id="remote-audio" autoplay playsinline></audio>
 
 <script>
-    const SECRET_KEY = "STABLE-VOICE-2026";
-    let peer, localStream, currentCall, myRole;
-    let isMicMuted = false;
-    let isAudioMuted = false;
+    const SECRET_KEY = "STABLE-VOICE-2026";
+    let peer, localStream, currentCall, myRole;
+    let isMicMuted = false;
+    let isAudioMuted = false;
 
-    async function init(role) {
-        myRole = role;
-        const myId = `${role}-${SECRET_KEY}`;
-        const targetId = (role === 'armenia' ? 'russia' : 'armenia') + "-" + SECRET_KEY;
+    async function init(role) {
+        myRole = role;
+        const myId = `${role}-${SECRET_KEY}`;
+        const targetId = (role === 'armenia' ? 'russia' : 'armenia') + "-" + SECRET_KEY;
 
-        document.getElementById('view-setup').style.display = 'none';
-        document.getElementById('view-chat').style.display = 'block';
-        document.getElementById(`status-${role}`).classList.add('online');
+        document.getElementById('view-setup').style.display = 'none';
+        document.getElementById('view-chat').style.display = 'block';
+        document.getElementById(`status-${role}`).classList.add('online');
 
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            peer = new Peer(myId, {
-                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }, { url: 'stun:stun1.l.google.com:19302' }] }
-            });
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            peer = new Peer(myId, {
+                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }, { url: 'stun:stun1.l.google.com:19302' }] }
+            });
 
-            peer.on('open', () => {
-                document.getElementById('call-status').innerText = "В сети. Ожидание собеседника...";
-                checkPeerStatus(targetId);
-            });
+            peer.on('open', () => {
+                document.getElementById('call-status').innerText = "В сети. Ожидание собеседника...";
+                checkPeerStatus(targetId);
+            });
 
-            peer.on('call', (call) => {
-                currentCall = call;
-                call.answer(localStream);
-                handleCall(call);
-            });
+            peer.on('call', (call) => {
+                currentCall = call;
+                call.answer(localStream);
+                handleCall(call);
+            });
 
-        } catch (e) { alert("Нужен микрофон и HTTPS!"); }
-    }
+        } catch (e) { alert("Нужен микрофон и HTTPS!"); }
+    }
 
-    // Проверка, сидит ли второй человек в канале
-    function checkPeerStatus(targetId) {
-        setInterval(() => {
-            const conn = peer.connect(targetId, { reliable: false });
-            conn.on('open', () => {
-                document.getElementById(`status-${myRole === 'armenia' ? 'russia' : 'armenia'}`).classList.add('online');
-                conn.close();
-            });
-            // Если через 3 сек нет ответа - считаем офлайн
-            setTimeout(() => {
-                if (!conn.open) document.getElementById(`status-${myRole === 'armenia' ? 'russia' : 'armenia'}`).classList.remove('online');
-            }, 3000);
-        }, 5000);
-    }
+    // Проверка, сидит ли второй человек в канале
+    function checkPeerStatus(targetId) {
+        setInterval(() => {
+            const conn = peer.connect(targetId, { reliable: false });
+            conn.on('open', () => {
+                document.getElementById(`status-${myRole === 'armenia' ? 'russia' : 'armenia'}`).classList.add('online');
+                conn.close();
+            });
+            // Если через 3 сек нет ответа - считаем офлайн
+            setTimeout(() => {
+                if (!conn.open) document.getElementById(`status-${myRole === 'armenia' ? 'russia' : 'armenia'}`).classList.remove('online');
+            }, 3000);
+        }, 5000);
+    }
 
-    function makeCall() {
-        const targetId = (myRole === 'armenia' ? 'russia' : 'armenia') + "-" + SECRET_KEY;
-        currentCall = peer.call(targetId, localStream);
-        handleCall(currentCall);
-    }
+    function makeCall() {
+        const targetId = (myRole === 'armenia' ? 'russia' : 'armenia') + "-" + SECRET_KEY;
+        currentCall = peer.call(targetId, localStream);
+        handleCall(currentCall);
+    }
 
-    function handleCall(call) {
-        document.getElementById('call-btn').style.display = 'none';
-        document.getElementById('hangup-btn').style.display = 'block';
-        document.getElementById('call-status').innerText = "Связь установлена";
+    function handleCall(call) {
+        document.getElementById('call-btn').style.display = 'none';
+        document.getElementById('hangup-btn').style.display = 'block';
+        document.getElementById('call-status').innerText = "Связь установлена";
 
-        call.on('stream', stream => {
-            const audio = document.getElementById('remote-audio');
-            audio.srcObject = stream;
-        });
-        call.on('close', resetUI);
-    }
+        call.on('stream', stream => {
+            const audio = document.getElementById('remote-audio');
+            audio.srcObject = stream;
+        });
+        call.on('close', resetUI);
+    }
 
-    function toggleMic() {
-        isMicMuted = !isMicMuted;
-        localStream.getAudioTracks()[0].enabled = !isMicMuted;
-        const btn = document.getElementById('mute-mic');
-        btn.innerText = isMicMuted ? "🎤 Микро: ВЫКЛ" : "🎤 Микро: ВКЛ";
-        btn.classList.toggle('active', isMicMuted);
-    }
+    function toggleMic() {
+        isMicMuted = !isMicMuted;
+        localStream.getAudioTracks()[0].enabled = !isMicMuted;
+        const btn = document.getElementById('mute-mic');
+        btn.innerText = isMicMuted ? "🎤 Микро: ВЫКЛ" : "🎤 Микро: ВКЛ";
+        btn.classList.toggle('active', isMicMuted);
+    }
 
-    function toggleAudio() {
-        isAudioMuted = !isAudioMuted;
-        document.getElementById('remote-audio').muted = isAudioMuted;
-        const btn = document.getElementById('mute-audio');
-        btn.innerText = isAudioMuted ? "🎧 Звук: ВЫКЛ" : "🎧 Звук: ВКЛ";
-        btn.classList.toggle('active', isAudioMuted);
-    }
+    function toggleAudio() {
+        isAudioMuted = !isAudioMuted;
+        document.getElementById('remote-audio').muted = isAudioMuted;
+        const btn = document.getElementById('mute-audio');
+        btn.innerText = isAudioMuted ? "🎧 Звук: ВЫКЛ" : "🎧 Звук: ВКЛ";
+        btn.classList.toggle('active', isAudioMuted);
+    }
 
-    function hangUp() {
-        if (currentCall) currentCall.close();
-        resetUI();
-    }
+    function hangUp() {
+        if (currentCall) currentCall.close();
+        resetUI();
+    }
 
-    function resetUI() {
-        document.getElementById('call-btn').style.display = 'block';
-        document.getElementById('hangup-btn').style.display = 'none';
-        document.getElementById('call-status').innerText = "Связь завершена";
-    }
+    function resetUI() {
+        document.getElementById('call-btn').style.display = 'block';
+        document.getElementById('hangup-btn').style.display = 'none';
+        document.getElementById('call-status').innerText = "Связь завершена";
+    }
 </script>
 </body>
 </html>
