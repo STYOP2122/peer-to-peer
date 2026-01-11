@@ -6,19 +6,21 @@
     <title>Приватная связь</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --pink: #ec4899; --green: #10b981; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --pink: #ec4899; --green: #10b981; --red: #ef4444; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
         .card { background: var(--card); padding: 30px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 90%; max-width: 350px; text-align: center; }
-        .btn { border: none; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-bottom: 12px; transition: 0.2s active; -webkit-tap-highlight-color: transparent; }
+        .btn { border: none; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-bottom: 12px; transition: 0.2s; -webkit-tap-highlight-color: transparent; }
         .btn-blue { background: var(--accent); color: white; }
         .btn-pink { background: var(--pink); color: white; }
-        .btn-call { background: var(--green); color: white; margin-top: 15px; display: none; }
+        .btn-call { background: var(--green); color: white; margin-top: 15px; }
+        .btn-hangup { background: var(--red); color: white; margin-top: 15px; display: none; }
         .status-box { margin: 20px 0; padding: 10px; border-radius: 10px; background: rgba(0,0,0,0.2); font-size: 14px; color: #94a3b8; }
         select { width: 100%; padding: 12px; border-radius: 10px; background: #334155; color: white; border: 1px solid #475569; margin-top: 10px; font-size: 14px; }
         #view-setup { display: block; }
         #view-call { display: none; }
-        .loader { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; margin-right: 5px; animation: blink 1s infinite; }
-        @keyframes blink { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+        .loader { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; margin-right: 5px; }
+        .active-blink { animation: blink 1s infinite; background: var(--green) !important; box-shadow: 0 0 10px var(--green); }
+        @keyframes blink { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
     </style>
 </head>
 <body>
@@ -28,7 +30,6 @@
         <h2 style="margin-top:0">Кто вы?</h2>
         <button class="btn btn-blue" onclick="startApp('armenia')">Я ПАРЕНЬ (Армения)</button>
         <button class="btn btn-pink" onclick="startApp('russia')">Я ДЕВУШКА (Россия)</button>
-        <p style="font-size: 12px; color: #64748b;">Убедитесь, что вы оба используете HTTPS</p>
     </div>
 
     <div id="view-call">
@@ -38,10 +39,11 @@
             <span id="status-text">Запрос микрофона...</span>
         </div>
         
-        <button id="call-btn" class="btn btn-call" onclick="makeCall()">ПОЗВОНИТЬ</button>
+        <button id="call-btn" class="btn btn-call" style="display:none" onclick="makeCall()">ПОЗВОНИТЬ</button>
+        <button id="hangup-btn" class="btn btn-hangup" onclick="hangUp()">СБРОСИТЬ</button>
         
         <div id="output-settings" style="text-align: left; margin-top: 20px; display:none;">
-            <label style="font-size: 12px; color: #94a3b8; margin-left: 5px;">Выход звука:</label>
+            <label style="font-size: 12px; color: #94a3b8;">Выход звука:</label>
             <select id="audio-output" onchange="changeOutput(this.value)">
                 <option value="">По умолчанию</option>
             </select>
@@ -52,8 +54,8 @@
 <audio id="remote-audio" autoplay playsinline></audio>
 
 <script>
-    const SECRET_KEY = "LOVE-2026-STAY-SAFE"; // Измените это слово на свое
-    let myPeerId, targetPeerId, localStream, peer;
+    const SECRET_KEY = "MY-SECRET-KEY-2026"; // Обязательно измените на своё!
+    let myPeerId, targetPeerId, localStream, peer, currentCall;
 
     async function startApp(role) {
         myPeerId = `${role}-${SECRET_KEY}`;
@@ -64,88 +66,80 @@
         document.getElementById('role-name').innerText = role === 'armenia' ? "Вы: Армения" : "Вы: Россия";
 
         try {
-            // 1. Запрос микрофона (обязательно до инициализации Peer)
-            localStream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { echoCancellation: true, noiseSuppression: true } 
-            });
-            
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             document.getElementById('status-text').innerText = "Микрофон готов";
-            document.getElementById('loader').style.backgroundColor = "#10b981";
             document.getElementById('call-btn').style.display = 'block';
 
-            // 2. Инициализация PeerJS с Google STUN серверами для обхода блокировок
             peer = new Peer(myPeerId, {
-                config: {
-                    'iceServers': [
-                        { url: 'stun:stun.l.google.com:19302' },
-                        { url: 'stun:stun1.l.google.com:19302' },
-                        { url: 'stun:stun2.l.google.com:19302' }
-                    ]
-                }
+                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }, { url: 'stun:stun1.l.google.com:19302' }] }
             });
 
-            peer.on('open', () => {
-                document.getElementById('status-text').innerText = "В сети. Можно звонить.";
-            });
+            peer.on('open', () => { document.getElementById('status-text').innerText = "В сети. Можно звонить."; });
 
             peer.on('call', (call) => {
-                document.getElementById('status-text').innerText = "Входящий вызов...";
+                currentCall = call;
                 call.answer(localStream);
                 setupRemoteStream(call);
             });
 
-            // 3. Список динамиков (только для Chrome/Android)
-            if (navigator.mediaDevices.enumerateDevices) {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const select = document.getElementById('audio-output');
-                const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
-                if (audioOutputs.length > 0) {
-                    document.getElementById('output-settings').style.display = 'block';
-                    audioOutputs.forEach(d => {
-                        const opt = document.createElement('option');
-                        opt.value = d.deviceId;
-                        opt.text = d.label || `Динамик ${select.length}`;
-                        select.appendChild(opt);
-                    });
-                }
+            // Настройка списка динамиков
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const select = document.getElementById('audio-output');
+            const outputs = devices.filter(d => d.kind === 'audiooutput');
+            if (outputs.length > 0) {
+                document.getElementById('output-settings').style.display = 'block';
+                outputs.forEach(d => {
+                    let opt = document.createElement('option');
+                    opt.value = d.deviceId; opt.text = d.label || `Динамик ${select.length}`;
+                    select.appendChild(opt);
+                });
             }
-
         } catch (err) {
-            document.getElementById('status-text').innerText = "Ошибка микрофона!";
-            alert("Пожалуйста, разрешите доступ к микрофону в настройках браузера.");
+            alert("Нужен доступ к микрофону!");
         }
     }
 
     function setupRemoteStream(call) {
+        document.getElementById('call-btn').style.display = 'none';
+        document.getElementById('hangup-btn').style.display = 'block';
+        document.getElementById('loader').classList.add('active-blink');
+
         call.on('stream', (stream) => {
             const audio = document.getElementById('remote-audio');
             audio.srcObject = stream;
-            // Важно для мобилок: играем звук после взаимодействия
-            audio.play().catch(e => console.log("Автоплей заблокирован"));
+            audio.play();
             document.getElementById('status-text').innerText = "РАЗГОВОР...";
-            document.getElementById('loader').style.animation = "none";
         });
+
+        call.on('close', () => { resetUI(); });
+        call.on('error', () => { resetUI(); });
     }
 
     function makeCall() {
         document.getElementById('status-text').innerText = "Вызов...";
-        const call = peer.call(targetPeerId, localStream);
-        setupRemoteStream(call);
-        
-        setTimeout(() => {
-            if (document.getElementById('status-text').innerText === "Вызов...") {
-                alert("Собеседник еще не зашел или не выбрал роль.");
-            }
-        }, 5000);
+        currentCall = peer.call(targetPeerId, localStream);
+        setupRemoteStream(currentCall);
+    }
+
+    function hangUp() {
+        if (currentCall) {
+            currentCall.close(); // Закрываем звонок у себя
+        }
+        resetUI();
+    }
+
+    function resetUI() {
+        const audio = document.getElementById('remote-audio');
+        audio.srcObject = null;
+        document.getElementById('status-text').innerText = "В сети. Можно звонить.";
+        document.getElementById('call-btn').style.display = 'block';
+        document.getElementById('hangup-btn').style.display = 'none';
+        document.getElementById('loader').classList.remove('active-blink');
     }
 
     async function changeOutput(id) {
         const audio = document.getElementById('remote-audio');
-        if (audio.setSinkId) {
-            await audio.setSinkId(id);
-        } else {
-            alert("Ваш браузер не поддерживает смену динамика.");
-        }
+        if (audio.setSinkId) await audio.setSinkId(id);
     }
 </script>
 </body>
