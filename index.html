@@ -3,158 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Наш Канал</title>
+    <title>Secure Voice Channel</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --bg: #313338; --sidebar: #2b2d31; --card: #1e1f22; --text: #dbdee1; --accent: #5865f2; --green: #23a559; --red: #f23f42; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .app-container { background: var(--card); width: 90%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-        .header { background: var(--sidebar); padding: 15px; text-align: center; border-bottom: 1px solid #1e1f22; font-weight: bold; }
-        .channel-info { padding: 20px; text-align: center; }
-        .user-row { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #4e5058; margin-right: 10px; }
-        .online { background: var(--green); box-shadow: 0 0 8px var(--green); }
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px; background: var(--sidebar); }
-        .btn { border: none; padding: 12px; border-radius: 5px; cursor: pointer; font-weight: 600; color: white; transition: 0.2s; }
-        .btn-call { grid-column: span 2; background: var(--green); margin-bottom: 10px; }
-        .btn-mute { background: #4e5058; }
-        .btn-mute.active { background: var(--red); }
+        :root { --bg: #313338; --sidebar: #2b2d31; --card: #1e1f22; --text: #dbdee1; --accent: #5865f2; --green: #23a559; --red: #da373c; --yellow: #f0b232; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        .app-container { background: var(--card); width: 90%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.6); display: flex; flex-direction: column; }
+        
+        /* Header */
+        .header { background: var(--sidebar); padding: 15px; text-align: center; border-bottom: 1px solid #1e1f22; font-weight: 800; letter-spacing: 1px; color: #fff; }
+        
+        /* Setup View */
+        #view-setup { padding: 40px 20px; display: flex; flex-direction: column; gap: 15px; text-align: center; }
+        .setup-title { margin-bottom: 10px; font-size: 1.1em; color: #949ba4; }
+        
+        /* Main View */
+        #view-chat { display: none; }
+        .channel-info { padding: 20px; }
+        .user-row { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 8px; border: 1px solid transparent; transition: 0.3s; }
+        .user-row.active { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); }
+        
+        .user-name { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; background: #4e5058; box-shadow: 0 0 0 2px var(--card); transition: 0.3s; }
+        .status-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .status-dot.busy { background: var(--red); }
+        
+        .status-text { font-size: 0.8em; margin-top: 15px; text-align: center; color: #949ba4; min-height: 1.2em; }
+        
+        /* Controls */
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px; background: var(--sidebar); border-top: 1px solid #1e1f22; }
+        .btn { border: none; padding: 14px; border-radius: 6px; cursor: pointer; font-weight: 700; color: white; transition: 0.2s; font-size: 0.9em; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:active { transform: scale(0.98); }
+        
+        .btn-call { grid-column: span 2; background: var(--green); }
+        .btn-call:disabled { background: #4e5058; cursor: not-allowed; opacity: 0.7; }
         .btn-hangup { grid-column: span 2; background: var(--red); display: none; }
-        #view-setup { padding: 30px; text-align: center; }
-        .setup-title { margin-bottom: 20px; font-size: 1.2em; }
+        
+        .btn-mute { background: #4e5058; }
+        .btn-mute.muted { background: var(--red); position: relative; }
+        .btn-mute.muted::after { content: ''; position: absolute; width: 80%; height: 2px; background: white; transform: rotate(-45deg); }
+
+        /* Logs for debug (hidden usually) */
+        #debug-log { font-size: 10px; color: #555; text-align: center; padding: 5px; }
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <div class="header">🔊 ГОЛОСОВОЙ КАНАЛ</div>
+    <div class="header">🔒 PRIVATE VOICE</div>
 
     <div id="view-setup">
-        <div class="setup-title">Кто заходит в канал?</div>
-        <button class="btn btn-call" style="background: var(--accent);" onclick="init('armenia')">Я ПАРЕНЬ (Армения)</button>
-        <button class="btn btn-call" style="background: #eb459e;" onclick="init('russia')">Я ДЕВУШКА (Россия)</button>
+        <div class="setup-title">Выберите вашу сторону</div>
+        <button class="btn" style="background: var(--accent);" onclick="startApp('armenia')">🇦🇲 Я — ПАРЕНЬ (Армения)</button>
+        <button class="btn" style="background: #eb459e;" onclick="startApp('russia')">🇷🇺 Я — ДЕВУШКА (Россия)</button>
     </div>
 
-    <div id="view-chat" style="display:none;">
+    <div id="view-chat">
         <div class="channel-info">
-            <div class="user-row">
-                <span>🇦🇲 Армения</span>
+            <div class="user-row" id="row-armenia">
+                <div class="user-name">🇦🇲 Армения</div>
                 <div id="status-armenia" class="status-dot"></div>
             </div>
-            <div class="user-row">
-                <span>🇷🇺 Россия</span>
+            <div class="user-row" id="row-russia">
+                <div class="user-name">🇷🇺 Россия</div>
                 <div id="status-russia" class="status-dot"></div>
             </div>
-            <div id="call-status" style="font-size: 0.8em; color: #949ba4; margin-top: 10px;">Подключение к сети...</div>
+            <div id="app-status" class="status-text">Инициализация...</div>
         </div>
 
         <div class="controls">
-            <button id="call-btn" class="btn btn-call" onclick="makeCall()">ПРИСОЕДИНИТЬСЯ</button>
-            <button id="hangup-btn" class="btn btn-hangup" onclick="hangUp()">ПОКИНУТЬ</button>
+            <button id="btn-connect" class="btn btn-call" onclick="startCall()" disabled>ОЖИДАНИЕ СОБЕСЕДНИКА...</button>
+            <button id="btn-hangup" class="btn btn-hangup" onclick="endCall()">ЗАВЕРШИТЬ</button>
             
-            <button id="mute-mic" class="btn btn-mute" onclick="toggleMic()">🎤 Микро: ВКЛ</button>
-            <button id="mute-audio" class="btn btn-mute" onclick="toggleAudio()">🎧 Звук: ВКЛ</button>
+            <button id="btn-mic" class="btn btn-mute" onclick="toggleMic()">🎤</button>
+            <button id="btn-audio" class="btn btn-mute" onclick="toggleAudio()">🎧</button>
         </div>
+        <div id="debug-log">v3.0 Stable</div>
     </div>
 </div>
 
 <audio id="remote-audio" autoplay playsinline></audio>
 
 <script>
-    const SECRET_KEY = "STABLE-VOICE-2026";
-    let peer, localStream, currentCall, myRole;
+    // --- КОНФИГУРАЦИЯ ---
+    const APP_ID = "PRIVATE_V3_2026"; // Уникальный ключ
+    const PEER_CONFIG = {
+        debug: 1,
+        config: {
+            'iceServers': [
+                { url: 'stun:stun.l.google.com:19302' },
+                { url: 'stun:stun1.l.google.com:19302' }
+            ]
+        }
+    };
+
+    // --- ПЕРЕМЕННЫЕ ---
+    let myRole = null; // 'armenia' or 'russia'
+    let targetRole = null;
+    let peer = null;
+    let localStream = null;
+    let currentCall = null;
+    let dataConn = null; // Постоянное соединение для статуса
     let isMicMuted = false;
     let isAudioMuted = false;
+    let connectionRetryInterval = null;
 
-    async function init(role) {
+    // --- ИНИЦИАЛИЗАЦИЯ ---
+    async function startApp(role) {
         myRole = role;
-        const myId = `${role}-${SECRET_KEY}`;
-        const targetId = (role === 'armenia' ? 'russia' : 'armenia') + "-" + SECRET_KEY;
-
+        targetRole = (role === 'armenia' ? 'russia' : 'armenia');
+        
+        // UI
         document.getElementById('view-setup').style.display = 'none';
         document.getElementById('view-chat').style.display = 'block';
-        document.getElementById(`status-${role}`).classList.add('online');
+        document.getElementById(`status-${myRole}`).classList.add('online'); // Я всегда онлайн для себя
 
         try {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            updateStatus("Запрос доступа к микрофону...");
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             
-            peer = new Peer(myId, {
-                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }, { url: 'stun:stun1.l.google.com:19302' }] }
-            });
-
-            peer.on('open', () => {
-                document.getElementById('call-status').innerText = "В сети. Ожидание собеседника...";
-                checkPeerStatus(targetId);
-            });
-
-            peer.on('call', (call) => {
-                currentCall = call;
-                call.answer(localStream);
-                handleCall(call);
-            });
-
-        } catch (e) { alert("Нужен микрофон и HTTPS!"); }
+            initPeer();
+        } catch (err) {
+            alert("Ошибка: Разрешите доступ к микрофону! " + err.message);
+            updateStatus("Нет доступа к микрофону");
+        }
     }
 
-    // Проверка, сидит ли второй человек в канале
-    function checkPeerStatus(targetId) {
-        setInterval(() => {
-            const conn = peer.connect(targetId, { reliable: false });
-            conn.on('open', () => {
-                document.getElementById(`status-${myRole === 'armenia' ? 'russia' : 'armenia'}`).classList.add('online');
-                conn.close();
-            });
-            // Если через 3 сек нет ответа - считаем офлайн
-            setTimeout(() => {
-                if (!conn.open) document.getElementById(`status-${myRole === 'armenia' ? 'russia' : 'armenia'}`).classList.remove('online');
-            }, 3000);
-        }, 5000);
+    function initPeer() {
+        const myPeerId = `${myRole}_${APP_ID}`;
+        updateStatus("Подключение к серверу...");
+
+        peer = new Peer(myPeerId, PEER_CONFIG);
+
+        peer.on('open', (id) => {
+            updateStatus("В сети. Поиск собеседника...");
+            startConnectionLoop(); // Начинаем искать партнера
+        });
+
+        peer.on('error', (err) => {
+            console.error(err);
+            if(err.type === 'peer-unavailable') {
+                // Игнорируем, так как цикл поиска обработает это
+            } else if (err.type === 'unavailable-id') {
+                alert("Эта роль уже занята! Возможно, вкладка уже открыта.");
+            } else {
+                updateStatus("Ошибка соединения: " + err.type);
+            }
+        });
+
+        // Входящий звонок
+        peer.on('call', (call) => {
+            if (currentCall) { 
+                call.close(); // Занято
+                return; 
+            }
+            if(!confirm("Входящий звонок! Принять?")) { // Для браузеров, требующих действия
+                call.close();
+                return;
+            }
+            handleCall(call);
+        });
+
+        // Входящее соединение данных (статус)
+        peer.on('connection', (conn) => {
+            handleDataConnection(conn);
+        });
     }
 
-    function makeCall() {
-        const targetId = (myRole === 'armenia' ? 'russia' : 'armenia') + "-" + SECRET_KEY;
-        currentCall = peer.call(targetId, localStream);
-        handleCall(currentCall);
+    // --- ЛОГИКА ПОДКЛЮЧЕНИЯ (СЕРДЦЕ СИСТЕМЫ) ---
+    
+    // Пытаемся подключиться к партнеру каждые 3 секунды, если нет соединения
+    function startConnectionLoop() {
+        if (connectionRetryInterval) clearInterval(connectionRetryInterval);
+        
+        connectionRetryInterval = setInterval(() => {
+            // Если уже есть активное соединение данных, ничего не делаем
+            if (dataConn && dataConn.open) return;
+
+            const targetId = `${targetRole}_${APP_ID}`;
+            const conn = peer.connect(targetId, { reliable: true });
+            
+            configureDataConnection(conn);
+
+        }, 3000);
+    }
+
+    function handleDataConnection(conn) {
+        // Если кто-то подключился к нам, сохраняем соединение
+        if (dataConn && dataConn.open) {
+            conn.close(); // У нас уже есть связь
+            return;
+        }
+        configureDataConnection(conn);
+    }
+
+    function configureDataConnection(conn) {
+        conn.on('open', () => {
+            console.log("Data connection opened");
+            dataConn = conn;
+            setPartnerOnline(true);
+            
+            // Отправляем приветствие, чтобы убедиться
+            dataConn.send({ type: 'hello' });
+        });
+
+        conn.on('data', (data) => {
+            if(data.type === 'hangup') endCall(false); // false = не отправлять сигнал обратно
+        });
+
+        conn.on('close', () => {
+            console.log("Data connection closed");
+            dataConn = null;
+            setPartnerOnline(false);
+            endCall(false); // Если разорвался канал данных, рвем и звонок
+        });
+        
+        conn.on('error', (err) => {
+            console.log("Data conn error", err);
+            // PeerJS сам вызовет close
+        });
+    }
+
+    // --- UI ФУНКЦИИ ---
+
+    function setPartnerOnline(isOnline) {
+        const dot = document.getElementById(`status-${targetRole}`);
+        const btn = document.getElementById('btn-connect');
+        
+        if (isOnline) {
+            dot.classList.add('online');
+            btn.disabled = false;
+            btn.innerText = "ПОЗВОНИТЬ";
+            btn.style.background = "var(--green)";
+            updateStatus("Собеседник в сети");
+        } else {
+            dot.classList.remove('online');
+            btn.disabled = true;
+            btn.innerText = "ОЖИДАНИЕ...";
+            btn.style.background = "#4e5058";
+            updateStatus("Поиск собеседника...");
+        }
+    }
+
+    function updateStatus(msg) {
+        document.getElementById('app-status').innerText = msg;
+    }
+
+    // --- ЛОГИКА ЗВОНКА ---
+
+    function startCall() {
+        const targetId = `${targetRole}_${APP_ID}`;
+        updateStatus("Звоним...");
+        const call = peer.call(targetId, localStream);
+        handleCall(call);
     }
 
     function handleCall(call) {
-        document.getElementById('call-btn').style.display = 'none';
-        document.getElementById('hangup-btn').style.display = 'block';
-        document.getElementById('call-status').innerText = "Связь установлена";
+        // Отвечаем
+        call.answer(localStream);
+        currentCall = call;
 
-        call.on('stream', stream => {
+        // UI
+        document.getElementById('btn-connect').style.display = 'none';
+        document.getElementById('btn-hangup').style.display = 'block';
+        updateStatus("🔊 Аудио связь установлена");
+        
+        // Включаем звук собеседника
+        call.on('stream', (remoteStream) => {
             const audio = document.getElementById('remote-audio');
-            audio.srcObject = stream;
+            audio.srcObject = remoteStream;
+            audio.play().catch(e => console.error("Autoplay prevent:", e));
         });
-        call.on('close', resetUI);
+
+        call.on('close', () => {
+            resetCallUI();
+        });
+        
+        call.on('error', () => {
+            resetCallUI();
+        });
     }
+
+    function endCall(sendSignal = true) {
+        if (currentCall) {
+            currentCall.close();
+            currentCall = null;
+        }
+        if (sendSignal && dataConn && dataConn.open) {
+            dataConn.send({ type: 'hangup' });
+        }
+        resetCallUI();
+    }
+
+    function resetCallUI() {
+        document.getElementById('btn-connect').style.display = 'block';
+        document.getElementById('btn-hangup').style.display = 'none';
+        if(dataConn && dataConn.open) {
+            updateStatus("Звонок завершен");
+        } else {
+            updateStatus("Поиск собеседника...");
+        }
+    }
+
+    // --- УПРАВЛЕНИЕ МЕДИА ---
 
     function toggleMic() {
         isMicMuted = !isMicMuted;
         localStream.getAudioTracks()[0].enabled = !isMicMuted;
-        const btn = document.getElementById('mute-mic');
-        btn.innerText = isMicMuted ? "🎤 Микро: ВЫКЛ" : "🎤 Микро: ВКЛ";
-        btn.classList.toggle('active', isMicMuted);
+        const btn = document.getElementById('btn-mic');
+        btn.classList.toggle('muted', isMicMuted);
     }
 
     function toggleAudio() {
         isAudioMuted = !isAudioMuted;
         document.getElementById('remote-audio').muted = isAudioMuted;
-        const btn = document.getElementById('mute-audio');
-        btn.innerText = isAudioMuted ? "🎧 Звук: ВЫКЛ" : "🎧 Звук: ВКЛ";
-        btn.classList.toggle('active', isAudioMuted);
+        const btn = document.getElementById('btn-audio');
+        btn.classList.toggle('muted', isAudioMuted);
     }
 
-    function hangUp() {
-        if (currentCall) currentCall.close();
-        resetUI();
-    }
-
-    function resetUI() {
-        document.getElementById('call-btn').style.display = 'block';
-        document.getElementById('hangup-btn').style.display = 'none';
-        document.getElementById('call-status').innerText = "Связь завершена";
-    }
+    // Очистка при закрытии
+    window.onbeforeunload = function() {
+        if(peer) peer.destroy();
+    };
 </script>
 </body>
 </html>
